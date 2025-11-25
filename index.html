@@ -1826,74 +1826,81 @@
             }
             
             // Funções de exportação
-            function exportStockReport() {
-                const products = JSON.parse(localStorage.getItem('products') || '[]');
-                
-                if (products.length === 0) {
-                    alert('Não há produtos cadastrados para exportar!');
-                    return;
-                }
-                
-                let csvContent = "Código;Nome;Categoria;Estoque;Estoque Mínimo;Custo Unitário;Preço Venda;Valor Total\n";
-                
-                products.forEach(product => {
-                    const totalValue = product.stock * product.cost;
-                    csvContent += `${product.code};${product.name};${product.category};${product.stock};${product.minStock};R$ ${product.cost.toFixed(2)};R$ ${product.price.toFixed(2)};R$ ${totalValue.toFixed(2)}\n`;
-                });
-                
-                downloadCSV(csvContent, 'relatorio_estoque.csv');
-                alert('Relatório de estoque exportado com sucesso!');
-            }
-            
-            function exportMovementsReport() {
-                const entries = JSON.parse(localStorage.getItem('entries') || '[]');
-                const exits = JSON.parse(localStorage.getItem('exits') || '[]');
-                const products = JSON.parse(localStorage.getItem('products') || '[]');
-                
-                if (entries.length === 0 && exits.length === 0) {
-                    alert('Não há movimentações para exportar!');
-                    return;
-                }
-                
-                let csvContent = "Data;Tipo;Produto;Quantidade;Valor Unitário;Valor Total;Responsável\n";
-                
-                // Entradas
-                entries.forEach(entry => {
-                    const product = products.find(p => p.id === entry.productId);
-                    const productName = product ? product.name : 'Produto não encontrado';
-                    csvContent += `${entry.date};Entrada;${productName};${entry.quantity};R$ ${entry.unitCost.toFixed(2)};R$ ${entry.totalCost.toFixed(2)};${entry.supplier}\n`;
-                });
-                
-                // Saídas
-                exits.forEach(exit => {
-                    const product = products.find(p => p.id === exit.productId);
-                    const productName = product ? product.name : 'Produto não encontrado';
-                    csvContent += `${exit.date};Saída;${productName};${exit.quantity};R$ ${exit.unitCost.toFixed(2)};R$ ${exit.totalCost.toFixed(2)};${exit.requester}\n`;
-                });
-                
-                downloadCSV(csvContent, 'relatorio_movimentacoes.csv');
-                alert('Relatório de movimentações exportado com sucesso!');
-            }
-            
-            function exportAlertsReport() {
-                const products = JSON.parse(localStorage.getItem('products') || '[]');
-                const alertProducts = products.filter(p => p.stock === 0 || p.stock <= p.minStock);
-                
-                if (alertProducts.length === 0) {
-                    alert('Não há alertas de estoque para exportar!');
-                    return;
-                }
-                
-                let csvContent = "Código;Nome;Categoria;Estoque Atual;Estoque Mínimo;Status\n";
-                
-                alertProducts.forEach(product => {
-                    const status = product.stock === 0 ? 'EM FALTA' : 'ESTOQUE BAIXO';
-                    csvContent += `${product.code};${product.name};${product.category};${product.stock};${product.minStock};${status}\n`;
-                });
-                
-                downloadCSV(csvContent, 'relatorio_alertas.csv');
-                alert('Relatório de alertas exportado com sucesso!');
-            }
+function exportStockReport() {
+    const products = JSON.parse(localStorage.getItem('products') || '[]');
+    const currentUser = localStorage.getItem('loggedInUser');
+    
+    if (products.length === 0) {
+        alert('Não há produtos cadastrados para exportar!');
+        return;
+    }
+    
+    let csvContent = "Código;Nome;Categoria;Estoque;Estoque Mínimo;Custo Unitário;Preço Venda;Valor Total;Cadastrado Por;Data/Hora Cadastro\n";
+    
+    products.forEach(product => {
+        const totalValue = product.stock * product.cost;
+        const cadastroDate = new Date(product.createdAt).toLocaleString('pt-BR');
+        csvContent += `${product.code};${product.name};${product.category};${product.stock};${product.minStock};R$ ${product.cost.toFixed(2)};R$ ${product.price.toFixed(2)};R$ ${totalValue.toFixed(2)};${currentUser};${cadastroDate}\n`;
+    });
+    
+    downloadCSV(csvContent, 'relatorio_estoque.csv');
+    alert('Relatório de estoque exportado com sucesso!');
+}
+
+function exportMovementsReport() {
+    const entries = JSON.parse(localStorage.getItem('entries') || '[]');
+    const exits = JSON.parse(localStorage.getItem('exits') || '[]');
+    const products = JSON.parse(localStorage.getItem('products') || '[]');
+    const currentUser = localStorage.getItem('loggedInUser');
+    
+    if (entries.length === 0 && exits.length === 0) {
+        alert('Não há movimentações para exportar!');
+        return;
+    }
+    
+    let csvContent = "Data;Tipo;Produto;Quantidade;Valor Unitário;Valor Total;Responsável;Registrado Por;Data/Hora Registro\n";
+    
+    // Entradas
+    entries.forEach(entry => {
+        const product = products.find(p => p.id === entry.productId);
+        const productName = product ? product.name : 'Produto não encontrado';
+        const registroDate = new Date(entry.createdAt).toLocaleString('pt-BR');
+        csvContent += `${entry.date};Entrada;${productName};${entry.quantity};R$ ${entry.unitCost.toFixed(2)};R$ ${entry.totalCost.toFixed(2)};${entry.supplier};${currentUser};${registroDate}\n`;
+    });
+    
+    // Saídas
+    exits.forEach(exit => {
+        const product = products.find(p => p.id === exit.productId);
+        const productName = product ? product.name : 'Produto não encontrado';
+        const registroDate = new Date(exit.createdAt).toLocaleString('pt-BR');
+        csvContent += `${exit.date};Saída;${productName};${exit.quantity};R$ ${exit.unitCost.toFixed(2)};R$ ${exit.totalCost.toFixed(2)};${exit.requester};${currentUser};${registroDate}\n`;
+    });
+    
+    downloadCSV(csvContent, 'relatorio_movimentacoes.csv');
+    alert('Relatório de movimentações exportado com sucesso!');
+}
+
+function exportAlertsReport() {
+    const products = JSON.parse(localStorage.getItem('products') || '[]');
+    const currentUser = localStorage.getItem('loggedInUser');
+    const alertProducts = products.filter(p => p.stock === 0 || p.stock <= p.minStock);
+    
+    if (alertProducts.length === 0) {
+        alert('Não há alertas de estoque para exportar!');
+        return;
+    }
+    
+    let csvContent = "Código;Nome;Categoria;Estoque Atual;Estoque Mínimo;Status;Cadastrado Por;Data/Hora Cadastro\n";
+    
+    alertProducts.forEach(product => {
+        const status = product.stock === 0 ? 'EM FALTA' : 'ESTOQUE BAIXO';
+        const cadastroDate = new Date(product.createdAt).toLocaleString('pt-BR');
+        csvContent += `${product.code};${product.name};${product.category};${product.stock};${product.minStock};${status};${currentUser};${cadastroDate}\n`;
+    });
+    
+    downloadCSV(csvContent, 'relatorio_alertas.csv');
+    alert('Relatório de alertas exportado com sucesso!');
+}
             
             function downloadCSV(csvContent, filename) {
                 const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
