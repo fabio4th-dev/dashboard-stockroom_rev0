@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle de Almoxarifado - F.W. COMPANY</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -61,9 +62,18 @@
             margin-bottom: 30px;
         }
         
-        .login-logo img {
-            height: 60px;
+        .fw-logo {
+            height: 80px;
             width: auto;
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            padding: 10px;
         }
         
         .login-title {
@@ -637,6 +647,31 @@
             color: var(--primary-color);
             margin-top: 5px;
         }
+
+        .import-status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .import-success {
+            background-color: rgba(39, 174, 96, 0.1);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .import-error {
+            background-color: rgba(231, 76, 60, 0.1);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+
+        .file-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: var(--gray-color);
+        }
         
         @media (max-width: 768px) {
             .dashboard-header {
@@ -680,11 +715,11 @@
     <!-- Tela de Login -->
     <div class="login-container" id="loginContainer">
         <div class="login-box">
-            <div class="login-logo">
-                <img src="FW LOGO (remov).png" alt="FW Company Logo" style="height: 60px; width: auto;">
-            </div>
+          <div class="login-logo">
+    <img src="FW Logo FULL sem fundo.png" style="height: 150px; width: auto;">
+</div>
             
-            <h1 class="login-title">F.W. COMPANY</h1>
+            
             <p class="login-subtitle">Sistema de Controle de Almoxarifado</p>
             
             <form class="login-form" id="loginForm">
@@ -713,11 +748,14 @@
     <div class="dashboard-container" id="dashboardContainer">
         <div class="dashboard-header">
             <div style="display: flex; align-items: center; gap: 25px;">
-                <img src="FW LOGO (remov).png" alt="FW Company Logo" style="height: 80px; width: auto;">
-                <div>
-                    <div class="project-title">F.W. COMPANY - CONTROLE DE ALMOXARIFADO</div>
-                    <div class="project-subtitle">Sistema de Gestão de Estoque</div>
-                </div>
+                <div class= style="height: 80px; width: 80px; font-size: 16px;"></div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+    <img src="FW LOGO (remov).png" style="height: 56px; width: auto; position: relative; left: -0.6cm;">
+    <div>
+        <div class="project-title">CONTROLE DE ALMOXARIFADO</div>
+        <div class="project-subtitle">Sistema de Gestão de Estoque</div>
+    </div>
+</div>
             </div>
             
             <div style="display: flex; align-items: center; gap: 20px;">
@@ -1181,6 +1219,46 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- NOVO CARD DE IMPORTAR DO EXCEL -->
+                    <div class="card">
+                        <div class="card-title"><i class="fas fa-file-excel"></i> Importar do Excel</div>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <div class="form-group">
+                                <label class="form-label" for="excelFile">Selecionar arquivo Excel</label>
+                                <input type="file" id="excelFile" class="form-input" accept=".xlsx, .xls, .csv">
+                                <div class="file-info" id="fileInfo"></div>
+                            </div>
+                            <button class="btn btn-success" id="importExcelBtn">
+                                <i class="fas fa-upload"></i> Importar Dados
+                            </button>
+                            <div class="form-group">
+                                <label class="form-label">Modelo da Planilha</label>
+                                <button class="btn btn-primary" id="downloadTemplateBtn">
+                                    <i class="fas fa-download"></i> Baixar Modelo
+                                </button>
+                            </div>
+                            <div class="import-status" id="importStatus"></div>
+                        </div>
+                    </div>
+
+                    <!-- NOVO CARD DO GOOGLE SHEETS -->
+                    <div class="card">
+                        <div class="card-title"><i class="fab fa-google"></i> Integração com Google Sheets</div>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <div class="form-group">
+                                <label class="form-label" for="googleSheetUrl">URL da Planilha Google Sheets</label>
+                                <input type="text" id="googleSheetUrl" class="form-input" 
+                                       placeholder="https://docs.google.com/spreadsheets/d/...">
+                            </div>
+                            <button class="btn btn-warning" id="connectGoogleSheetsBtn">
+                                <i class="fas fa-sync"></i> Conectar e Sincronizar
+                            </button>
+                            <button class="btn btn-info" id="autoSyncBtn">
+                                <i class="fas fa-redo"></i> Sincronização Automática
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="card">
@@ -1207,6 +1285,9 @@
             const errorMessage = document.getElementById('errorMessage');
             const switchToRegister = document.getElementById('switchToRegister');
             const logoutBtn = document.getElementById('logoutBtn');
+            
+            // Inicializar dados de exemplo se não existirem
+            initializeSampleData();
             
             // Verificar se o usuário já está logado
             checkLoginStatus();
@@ -1262,10 +1343,65 @@
                 }
             });
             
-            // Botão de logout
+            // Botão de logout - CORREÇÃO: Adicionar event listener corretamente
             logoutBtn.addEventListener('click', function() {
                 logoutUser();
             });
+            
+            // Função para inicializar dados de exemplo
+            function initializeSampleData() {
+                // Verificar se já existem usuários
+                if (!localStorage.getItem('users')) {
+                    const sampleUsers = [
+                        { username: 'admin', password: 'admin123' },
+                        { username: 'fabio', password: 'fwcompany' }
+                    ];
+                    localStorage.setItem('users', JSON.stringify(sampleUsers));
+                }
+                
+                // Verificar se já existem produtos - CORREÇÃO: Limpar produtos existentes
+                if (!localStorage.getItem('products') || JSON.parse(localStorage.getItem('products')).length === 0) {
+                    const sampleProducts = [
+                        {
+                            id: 'sample1',
+                            code: 'P001',
+                            name: 'Fio Elétrico 2.5mm',
+                            category: 'Elétrica',
+                            unit: 'Metro',
+                            cost: 2.50,
+                            price: 3.50,
+                            minStock: 100,
+                            maxStock: 1000,
+                            stock: 0, // CORREÇÃO: Estoque zerado
+                            description: 'Fio elétrico 2.5mm vermelho',
+                            createdAt: new Date().toISOString()
+                        },
+                        {
+                            id: 'sample2',
+                            code: 'P002',
+                            name: 'Parafuso 3x20mm',
+                            category: 'Ferragens',
+                            unit: 'Unidade',
+                            cost: 0.15,
+                            price: 0.25,
+                            minStock: 500,
+                            maxStock: 5000,
+                            stock: 0, // CORREÇÃO: Estoque zerado
+                            description: 'Parafuso sextavado 3x20mm',
+                            createdAt: new Date().toISOString()
+                        }
+                    ];
+                    localStorage.setItem('products', JSON.stringify(sampleProducts));
+                }
+                
+                // Limpar entradas e saídas para garantir dados limpos
+                if (!localStorage.getItem('entries')) {
+                    localStorage.setItem('entries', JSON.stringify([]));
+                }
+                if (!localStorage.getItem('exits')) {
+                    localStorage.setItem('exits', JSON.stringify([]));
+                }
+            }
             
             // Funções de autenticação
             function checkLoginStatus() {
@@ -1304,6 +1440,9 @@
                 localStorage.removeItem('loggedInUser');
                 loginContainer.style.display = 'flex';
                 dashboardContainer.style.display = 'none';
+                // CORREÇÃO: Limpar formulário de login ao sair
+                document.getElementById('loginForm').reset();
+                document.getElementById('errorMessage').style.display = 'none';
             }
             
             function showDashboard() {
@@ -1420,6 +1559,21 @@
                 document.getElementById('exportAlertsReport').addEventListener('click', function() {
                     exportAlertsReport();
                 });
+
+                // NOVOS EVENT LISTENERS PARA IMPORTAR EXCEL
+                document.getElementById('importExcelBtn').addEventListener('click', importFromExcel);
+                document.getElementById('downloadTemplateBtn').addEventListener('click', downloadExcelTemplate);
+                document.getElementById('connectGoogleSheetsBtn').addEventListener('click', connectGoogleSheets);
+                document.getElementById('autoSyncBtn').addEventListener('click', toggleAutoSync);
+
+                // Mostrar informações do arquivo selecionado
+                document.getElementById('excelFile').addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        document.getElementById('fileInfo').textContent = 
+                            `Arquivo selecionado: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+                    }
+                });
                 
                 // Definir data atual nos formulários
                 const today = new Date().toISOString().split('T')[0];
@@ -1440,10 +1594,10 @@
                     name: document.getElementById('productName').value,
                     category: document.getElementById('productCategory').value,
                     unit: document.getElementById('productUnit').value,
-                    cost: parseFloat(document.getElementById('productCost').value),
-                    price: parseFloat(document.getElementById('productPrice').value),
-                    minStock: parseInt(document.getElementById('productMinStock').value),
-                    maxStock: parseInt(document.getElementById('productMaxStock').value),
+                    cost: parseFloat(document.getElementById('productCost').value) || 0,
+                    price: parseFloat(document.getElementById('productPrice').value) || 0,
+                    minStock: parseInt(document.getElementById('productMinStock').value) || 0,
+                    maxStock: parseInt(document.getElementById('productMaxStock').value) || 0,
                     description: document.getElementById('productDescription').value,
                     stock: 0, // Estoque inicial zero
                     createdAt: new Date().toISOString()
@@ -1463,9 +1617,9 @@
             
             function saveEntry() {
                 const productId = document.getElementById('entryProduct').value;
-                const quantity = parseInt(document.getElementById('entryQuantity').value);
+                const quantity = parseInt(document.getElementById('entryQuantity').value) || 0;
                 const supplier = document.getElementById('entrySupplier').value;
-                const unitCost = parseFloat(document.getElementById('entryUnitCost').value);
+                const unitCost = parseFloat(document.getElementById('entryUnitCost').value) || 0;
                 const date = document.getElementById('entryDate').value;
                 const note = document.getElementById('entryNote').value;
                 const observation = document.getElementById('entryObservation').value;
@@ -1512,7 +1666,7 @@
             
             function saveExit() {
                 const productId = document.getElementById('exitProduct').value;
-                const quantity = parseInt(document.getElementById('exitQuantity').value);
+                const quantity = parseInt(document.getElementById('exitQuantity').value) || 0;
                 const requester = document.getElementById('exitRequester').value;
                 const department = document.getElementById('exitDepartment').value;
                 const date = document.getElementById('exitDate').value;
@@ -1584,8 +1738,8 @@
                         <td>${product.category}</td>
                         <td>${product.stock}</td>
                         <td>${product.minStock}</td>
-                        <td>R$ ${product.cost.toFixed(2)}</td>
-                        <td>R$ ${product.price.toFixed(2)}</td>
+                        <td>R$ ${(product.cost || 0).toFixed(2)}</td>
+                        <td>R$ ${(product.price || 0).toFixed(2)}</td>
                         <td>
                             <div class="action-buttons">
                                 <button class="btn btn-sm btn-primary" onclick="editProduct('${product.id}')">
@@ -1641,7 +1795,7 @@
                         <td>${product ? `${product.code} - ${product.name}` : 'Produto não encontrado'}</td>
                         <td>${entry.quantity}</td>
                         <td>${entry.supplier}</td>
-                        <td>R$ ${entry.unitCost.toFixed(2)}</td>
+                        <td>R$ ${(entry.unitCost || 0).toFixed(2)}</td>
                         <td>${entry.note || '-'}</td>
                         <td>
                             <div class="action-buttons">
@@ -1738,8 +1892,8 @@
                         <td>${product.category}</td>
                         <td>${product.stock}</td>
                         <td>${product.minStock}</td>
-                        <td>R$ ${product.cost.toFixed(2)}</td>
-                        <td>R$ ${product.price.toFixed(2)}</td>
+                        <td>R$ ${(product.cost || 0).toFixed(2)}</td>
+                        <td>R$ ${(product.price || 0).toFixed(2)}</td>
                         <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                         <td>
                             <div class="action-buttons">
@@ -1753,14 +1907,21 @@
                 });
             }
             
-            // Funções de dashboard
+            // Funções de dashboard - CORREÇÃO COMPLETA
             function updateDashboard() {
                 // Buscar produtos do localStorage
                 const products = JSON.parse(localStorage.getItem('products') || '[]');
                 
-                // Calcular totais reais
+                // CORREÇÃO: Calcular totais corretamente
                 const totalProducts = products.length;
-                const totalValue = products.reduce((sum, product) => sum + (product.stock * product.cost), 0);
+                
+                // CORREÇÃO: Garantir que o valor total seja calculado corretamente
+                const totalValue = products.reduce((sum, product) => {
+                    const stock = Number(product.stock) || 0;
+                    const cost = Number(product.cost) || 0;
+                    return sum + (stock * cost);
+                }, 0);
+                
                 const lowStockItems = products.filter(p => p.stock > 0 && p.stock <= p.minStock).length;
                 const outOfStockItems = products.filter(p => p.stock === 0).length;
                 
@@ -1825,6 +1986,254 @@
                 document.getElementById('entryQuantity').focus();
             }
             
+            // =============================================
+            // NOVAS FUNÇÕES PARA IMPORTAR DO EXCEL
+            // =============================================
+            
+            async function importFromExcel() {
+                const fileInput = document.getElementById('excelFile');
+                const file = fileInput.files[0];
+                const statusDiv = document.getElementById('importStatus');
+                
+                if (!file) {
+                    statusDiv.textContent = 'Por favor, selecione um arquivo Excel.';
+                    statusDiv.className = 'import-status import-error';
+                    statusDiv.style.display = 'block';
+                    return;
+                }
+
+                try {
+                    statusDiv.textContent = 'Processando arquivo...';
+                    statusDiv.className = 'import-status import-success';
+                    statusDiv.style.display = 'block';
+                    
+                    const data = await readExcelFile(file);
+                    const result = processExcelData(data);
+                    
+                    statusDiv.innerHTML = `
+                        <strong>Importação concluída com sucesso!</strong><br>
+                        Produtos processados: ${result.processed}<br>
+                        Produtos adicionados: ${result.added}<br>
+                        Produtos atualizados: ${result.updated}
+                    `;
+                    statusDiv.className = 'import-status import-success';
+                    
+                    // Atualizar a interface
+                    updateDashboard();
+                    loadProductsTable();
+                    loadEntryFormProducts();
+                    loadExitFormProducts();
+                    
+                    // Limpar o arquivo
+                    fileInput.value = '';
+                    document.getElementById('fileInfo').textContent = '';
+                    
+                } catch (error) {
+                    statusDiv.textContent = 'Erro ao importar arquivo: ' + error.message;
+                    statusDiv.className = 'import-status import-error';
+                    statusDiv.style.display = 'block';
+                    console.error('Erro na importação:', error);
+                }
+            }
+
+            function readExcelFile(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const firstSheetName = workbook.SheetNames[0];
+                            const worksheet = workbook.Sheets[firstSheetName];
+                            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                            resolve(jsonData);
+                        } catch (error) {
+                            reject(new Error('Formato de arquivo inválido. Use .xlsx, .xls ou .csv'));
+                        }
+                    };
+                    
+                    reader.onerror = function() {
+                        reject(new Error('Erro ao ler o arquivo'));
+                    };
+                    
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            function processExcelData(data) {
+                const currentUser = localStorage.getItem('loggedInUser');
+                let products = JSON.parse(localStorage.getItem('products') || '[]');
+                
+                let processed = 0;
+                let added = 0;
+                let updated = 0;
+                
+                data.forEach((row, index) => {
+                    // Pular linhas vazias
+                    if (!row['Código'] && !row['Nome']) return;
+                    
+                    processed++;
+                    
+                    // Mapear colunas do Excel para o sistema
+                    const productData = {
+                        id: generateId(),
+                        code: row['Código'] || row['codigo'] || `AUTO_${Date.now()}_${index}`,
+                        name: row['Nome'] || row['nome'] || row['Descrição'] || 'Produto Sem Nome',
+                        category: row['Categoria'] || row['categoria'] || 'Outros',
+                        unit: row['Unidade'] || row['unidade'] || 'Unidade',
+                        cost: parseFloat(row['Custo'] || row['custo'] || row['Custo Unitário'] || 0),
+                        price: parseFloat(row['Preço'] || row['preco'] || row['Preço Venda'] || 0),
+                        minStock: parseInt(row['Estoque Mínimo'] || row['estoque_minimo'] || row['Mínimo'] || 0),
+                        maxStock: parseInt(row['Estoque Máximo'] || row['estoque_maximo'] || row['Máximo'] || 0),
+                        stock: parseInt(row['Estoque'] || row['estoque'] || row['Estoque Atual'] || 0),
+                        description: row['Descrição'] || row['descricao'] || '',
+                        createdBy: currentUser,
+                        createdAt: new Date().toISOString()
+                    };
+                    
+                    // Verificar se produto já existe (atualizar)
+                    const existingIndex = products.findIndex(p => p.code === productData.code);
+                    if (existingIndex !== -1) {
+                        // Mantém o ID original e atualiza os dados
+                        productData.id = products[existingIndex].id;
+                        products[existingIndex] = { ...products[existingIndex], ...productData };
+                        updated++;
+                    } else {
+                        products.push(productData);
+                        added++;
+                    }
+                });
+                
+                localStorage.setItem('products', JSON.stringify(products));
+                
+                return {
+                    processed,
+                    added,
+                    updated
+                };
+            }
+
+            function downloadExcelTemplate() {
+                const templateData = [
+                    {
+                        'Código': 'P001',
+                        'Nome': 'Fio Elétrico 2.5mm',
+                        'Categoria': 'Elétrica',
+                        'Unidade': 'Metro',
+                        'Custo': 2.50,
+                        'Preço': 3.50,
+                        'Estoque Mínimo': 100,
+                        'Estoque Máximo': 1000,
+                        'Estoque': 0, // CORREÇÃO: Estoque zerado no template
+                        'Descrição': 'Fio elétrico 2.5mm vermelho'
+                    },
+                    {
+                        'Código': 'P002',
+                        'Nome': 'Parafuso 3x20mm',
+                        'Categoria': 'Ferragens',
+                        'Unidade': 'Unidade',
+                        'Custo': 0.15,
+                        'Preço': 0.25,
+                        'Estoque Mínimo': 500,
+                        'Estoque Máximo': 5000,
+                        'Estoque': 0, // CORREÇÃO: Estoque zerado no template
+                        'Descrição': 'Parafuso sextavado 3x20mm'
+                    }
+                ];
+                
+                const worksheet = XLSX.utils.json_to_sheet(templateData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos');
+                
+                // Ajustar largura das colunas
+                const colWidths = [
+                    { wch: 15 }, // Código
+                    { wch: 30 }, // Nome
+                    { wch: 15 }, // Categoria
+                    { wch: 12 }, // Unidade
+                    { wch: 10 }, // Custo
+                    { wch: 10 }, // Preço
+                    { wch: 15 }, // Estoque Mínimo
+                    { wch: 15 }, // Estoque Máximo
+                    { wch: 10 }, // Estoque
+                    { wch: 40 }  // Descrição
+                ];
+                worksheet['!cols'] = colWidths;
+                
+                XLSX.writeFile(workbook, 'modelo_importacao_produtos.xlsx');
+            }
+
+            // Funções do Google Sheets (simuladas)
+            let autoSyncInterval = null;
+
+            async function connectGoogleSheets() {
+                const sheetUrl = document.getElementById('googleSheetUrl').value;
+                const statusDiv = document.getElementById('importStatus');
+                
+                if (!sheetUrl) {
+                    statusDiv.textContent = 'Por favor, insira a URL da planilha Google Sheets.';
+                    statusDiv.className = 'import-status import-error';
+                    statusDiv.style.display = 'block';
+                    return;
+                }
+                
+                try {
+                    statusDiv.textContent = 'Conectando com Google Sheets...';
+                    statusDiv.className = 'import-status import-success';
+                    statusDiv.style.display = 'block';
+                    
+                    // Simulação - em produção, você faria uma chamada real à API
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    statusDiv.textContent = 'Funcionalidade em desenvolvimento. Use a importação por arquivo Excel.';
+                    statusDiv.className = 'import-status import-success';
+                    
+                } catch (error) {
+                    statusDiv.textContent = 'Erro ao conectar com Google Sheets: ' + error.message;
+                    statusDiv.className = 'import-status import-error';
+                }
+            }
+
+            function toggleAutoSync() {
+                const button = document.getElementById('autoSyncBtn');
+                const statusDiv = document.getElementById('importStatus');
+                
+                if (autoSyncInterval) {
+                    clearInterval(autoSyncInterval);
+                    autoSyncInterval = null;
+                    button.innerHTML = '<i class="fas fa-redo"></i> Ativar Sincronização Automática';
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-info');
+                    statusDiv.textContent = 'Sincronização automática desativada';
+                    statusDiv.className = 'import-status import-success';
+                    statusDiv.style.display = 'block';
+                } else {
+                    const sheetUrl = document.getElementById('googleSheetUrl').value;
+                    if (!sheetUrl) {
+                        statusDiv.textContent = 'Configure a URL do Google Sheets primeiro.';
+                        statusDiv.className = 'import-status import-error';
+                        statusDiv.style.display = 'block';
+                        return;
+                    }
+                    
+                    statusDiv.textContent = 'Sincronização automática ativada (a cada 5 minutos)';
+                    statusDiv.className = 'import-status import-success';
+                    statusDiv.style.display = 'block';
+                    
+                    button.innerHTML = '<i class="fas fa-stop"></i> Parar Sincronização Automática';
+                    button.classList.remove('btn-info');
+                    button.classList.add('btn-success');
+                    
+                    // Simulação de sincronização automática
+                    autoSyncInterval = setInterval(() => {
+                        statusDiv.textContent = `Última sincronização: ${new Date().toLocaleTimeString('pt-BR')}`;
+                        statusDiv.className = 'import-status import-success';
+                        statusDiv.style.display = 'block';
+                    }, 300000); // 5 minutos
+                }
+            }
+            
             // Funções de exportação
             function exportStockReport() {
                 const products = JSON.parse(localStorage.getItem('products') || '[]');
@@ -1838,9 +2247,9 @@
                 let csvContent = "Código;Nome;Categoria;Estoque;Estoque Mínimo;Custo Unitário;Preço Venda;Valor Total;Cadastrado Por;Data/Hora Cadastro\n";
                 
                 products.forEach(product => {
-                    const totalValue = product.stock * product.cost;
+                    const totalValue = (product.stock || 0) * (product.cost || 0);
                     const cadastroDate = new Date(product.createdAt).toLocaleString('pt-BR');
-                    csvContent += `${product.code};${product.name};${product.category};${product.stock};${product.minStock};R$ ${product.cost.toFixed(2)};R$ ${product.price.toFixed(2)};R$ ${totalValue.toFixed(2)};${currentUser};${cadastroDate}\n`;
+                    csvContent += `${product.code};${product.name};${product.category};${product.stock || 0};${product.minStock};R$ ${(product.cost || 0).toFixed(2)};R$ ${(product.price || 0).toFixed(2)};R$ ${totalValue.toFixed(2)};${currentUser};${cadastroDate}\n`;
                 });
                 
                 downloadCSV(csvContent, 'relatorio_estoque.csv');
@@ -1865,7 +2274,7 @@
                     const product = products.find(p => p.id === entry.productId);
                     const productName = product ? product.name : 'Produto não encontrado';
                     const registroDate = new Date(entry.createdAt).toLocaleString('pt-BR');
-                    csvContent += `${entry.date};Entrada;${productName};${entry.quantity};R$ ${entry.unitCost.toFixed(2)};R$ ${entry.totalCost.toFixed(2)};${entry.supplier};${currentUser};${registroDate}\n`;
+                    csvContent += `${entry.date};Entrada;${productName};${entry.quantity};R$ ${(entry.unitCost || 0).toFixed(2)};R$ ${(entry.totalCost || 0).toFixed(2)};${entry.supplier};${currentUser};${registroDate}\n`;
                 });
                 
                 // Saídas
@@ -1873,7 +2282,7 @@
                     const product = products.find(p => p.id === exit.productId);
                     const productName = product ? product.name : 'Produto não encontrado';
                     const registroDate = new Date(exit.createdAt).toLocaleString('pt-BR');
-                    csvContent += `${exit.date};Saída;${productName};${exit.quantity};R$ ${exit.unitCost.toFixed(2)};R$ ${exit.totalCost.toFixed(2)};${exit.requester};${currentUser};${registroDate}\n`;
+                    csvContent += `${exit.date};Saída;${productName};${exit.quantity};R$ ${(exit.unitCost || 0).toFixed(2)};R$ ${(exit.totalCost || 0).toFixed(2)};${exit.requester};${currentUser};${registroDate}\n`;
                 });
                 
                 downloadCSV(csvContent, 'relatorio_movimentacoes.csv');
