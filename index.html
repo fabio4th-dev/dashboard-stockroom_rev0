@@ -650,9 +650,11 @@
 
         .import-status {
             margin-top: 15px;
-            padding: 10px;
-            border-radius: 5px;
+            padding: 12px;
+            border-radius: 6px;
             display: none;
+            font-size: 14px;
+            line-height: 1.4;
         }
 
         .import-success {
@@ -671,6 +673,7 @@
             margin-top: 10px;
             font-size: 14px;
             color: var(--gray-color);
+            font-style: italic;
         }
         
         @media (max-width: 768px) {
@@ -708,6 +711,7 @@
             .search-input {
                 min-width: 100%;
             }
+            
         }
     </style>
 </head>
@@ -832,7 +836,7 @@
                 
                 <div class="cards-container">
                     <div class="card">
-                        <div class="card-title"><i class="fas fa-chart-bar"></i> Produtos Mais Vendidos</div>
+                        <div class="card-title"><i class="fas fa-chart-bar"></i> Produtos Mais Procurados</div>
                         <div class="chart-container" style="height: 300px;">
                             <canvas id="topProductsChart"></canvas>
                         </div>
@@ -1217,6 +1221,9 @@
                             <button class="btn btn-danger" id="inventoryBtn">
                                 <i class="fas fa-clipboard-list"></i> Realizar Inventário
                             </button>
+                            <button class="btn btn-info" id="viewHistoryBtn">
+                                <i class="fas fa-history"></i> Ver Histórico de Ajustes
+                            </button>
                         </div>
                     </div>
 
@@ -1249,7 +1256,7 @@
                             <div class="form-group">
                                 <label class="form-label" for="googleSheetUrl">URL da Planilha Google Sheets</label>
                                 <input type="text" id="googleSheetUrl" class="form-input" 
-                                       placeholder="https://docs.google.com/spreadsheets/d/...">
+                                       placeholder="https://docs.google.com/spreadsheets/d/14XXJCQREBP_9xtE7ja2whKeoUJeLHSGd/edit?gid=1539404586#gid=1539404586">
                             </div>
                             <button class="btn btn-warning" id="connectGoogleSheetsBtn">
                                 <i class="fas fa-sync"></i> Conectar e Sincronizar
@@ -1458,6 +1465,9 @@
                 // Atualizar informações do usuário
                 document.getElementById('userName').textContent = currentUser;
                 
+                // Carregar URL do Google Sheets salva
+                loadSavedGoogleSheet();
+                
                 // Tab switching functionality
                 const tabButtons = document.querySelectorAll('.tab-button');
                 const tabContents = document.querySelectorAll('.tab-content');
@@ -1565,6 +1575,11 @@
                 document.getElementById('downloadTemplateBtn').addEventListener('click', downloadExcelTemplate);
                 document.getElementById('connectGoogleSheetsBtn').addEventListener('click', connectGoogleSheets);
                 document.getElementById('autoSyncBtn').addEventListener('click', toggleAutoSync);
+
+                // NOVOS EVENT LISTENERS PARA AJUSTES DE ESTOQUE
+                document.getElementById('adjustStockBtn').addEventListener('click', adjustStock);
+                document.getElementById('inventoryBtn').addEventListener('click', performInventory);
+                document.getElementById('viewHistoryBtn').addEventListener('click', viewAdjustmentHistory);
 
                 // Mostrar informações do arquivo selecionado
                 document.getElementById('excelFile').addEventListener('change', function(e) {
@@ -1908,37 +1923,268 @@
             }
             
             // Funções de dashboard - CORREÇÃO COMPLETA
-            function updateDashboard() {
-                // Buscar produtos do localStorage
-                const products = JSON.parse(localStorage.getItem('products') || '[]');
-                
-                // CORREÇÃO: Calcular totais corretamente
-                const totalProducts = products.length;
-                
-                // CORREÇÃO: Garantir que o valor total seja calculado corretamente
-                const totalValue = products.reduce((sum, product) => {
-                    const stock = Number(product.stock) || 0;
-                    const cost = Number(product.cost) || 0;
-                    return sum + (stock * cost);
-                }, 0);
-                
-                const lowStockItems = products.filter(p => p.stock > 0 && p.stock <= p.minStock).length;
-                const outOfStockItems = products.filter(p => p.stock === 0).length;
-                
-                // Atualizar métricas do dashboard
-                document.getElementById('dashboardTotalProducts').textContent = totalProducts;
-                document.getElementById('dashboardTotalValue').textContent = `R$ ${totalValue.toFixed(2)}`;
-                document.getElementById('dashboardLowStock').textContent = lowStockItems;
-                document.getElementById('dashboardOutOfStock').textContent = outOfStockItems;
-                
-                // Atualizar cabeçalho
-                document.getElementById('totalProducts').textContent = totalProducts;
-                document.getElementById('totalValue').textContent = `R$ ${totalValue.toFixed(2)}`;
-                document.getElementById('itemsOutOfStock').textContent = outOfStockItems;
-                
-                // Atualizar tabela de alertas
-                updateAlertsTable();
+           // Funções de dashboard - CORREÇÃO COMPLETA
+function updateDashboard() {
+    // Buscar produtos do localStorage
+    const products = JSON.parse(localStorage.getItem('products') || '[]');
+    const exits = JSON.parse(localStorage.getItem('exits') || '[]');
+    const entries = JSON.parse(localStorage.getItem('entries') || '[]');
+    
+    // CORREÇÃO: Calcular totais corretamente
+    const totalProducts = products.length;
+    
+    // CORREÇÃO: Garantir que o valor total seja calculado corretamente
+    const totalValue = products.reduce((sum, product) => {
+        const stock = Number(product.stock) || 0;
+        const cost = Number(product.cost) || 0;
+        return sum + (stock * cost);
+    }, 0);
+    
+    const lowStockItems = products.filter(p => p.stock > 0 && p.stock <= p.minStock).length;
+    const outOfStockItems = products.filter(p => p.stock === 0).length;
+    
+    // Atualizar métricas do dashboard
+    document.getElementById('dashboardTotalProducts').textContent = totalProducts;
+    document.getElementById('dashboardTotalValue').textContent = `R$ ${totalValue.toFixed(2)}`;
+    document.getElementById('dashboardLowStock').textContent = lowStockItems;
+    document.getElementById('dashboardOutOfStock').textContent = outOfStockItems;
+    
+    // Atualizar cabeçalho
+    document.getElementById('totalProducts').textContent = totalProducts;
+    document.getElementById('totalValue').textContent = `R$ ${totalValue.toFixed(2)}`;
+    document.getElementById('itemsOutOfStock').textContent = outOfStockItems;
+    
+    // Atualizar tabela de alertas
+    updateAlertsTable();
+    
+    // CARREGAR OS GRÁFICOS
+    loadTopProductsChart();
+    loadMonthlyMovementChart();
+}
+
+// Função para carregar gráfico dos produtos mais procurados
+function loadTopProductsChart() {
+    const products = JSON.parse(localStorage.getItem('products') || '[]');
+    const exits = JSON.parse(localStorage.getItem('exits') || '[]');
+    
+    // Verificar se há dados
+    if (exits.length === 0) {
+        showNoDataMessage('topProductsChart', 'Nenhuma saída registrada ainda');
+        return;
+    }
+    
+    // Calcular quantidade procurada por produto
+    const productRequests = {};
+    
+    exits.forEach(exit => {
+        if (!productRequests[exit.productId]) {
+            productRequests[exit.productId] = 0;
+        }
+        productRequests[exit.productId] += exit.quantity;
+    });
+    
+    // Ordenar produtos por procura (top 10)
+    const topProducts = Object.entries(productRequests)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10)
+        .map(([productId, quantity]) => {
+            const product = products.find(p => p.id === productId);
+            return {
+                name: product ? product.name : 'Produto Não Encontrado',
+                quantity: quantity
+            };
+        });
+    
+    const ctx = document.getElementById('topProductsChart').getContext('2d');
+    
+    // Destruir gráfico anterior se existir
+    if (window.topProductsChartInstance) {
+        window.topProductsChartInstance.destroy();
+    }
+    
+    // Criar dados para o gráfico
+    const labels = topProducts.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
+    const data = topProducts.map(p => p.quantity);
+    
+    window.topProductsChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Quantidade Procurada',
+                data: data,
+                backgroundColor: [
+                    'rgba(52, 152, 219, 0.7)',
+                    'rgba(46, 204, 113, 0.7)',
+                    'rgba(155, 89, 182, 0.7)',
+                    'rgba(52, 73, 94, 0.7)',
+                    'rgba(241, 196, 15, 0.7)',
+                    'rgba(230, 126, 34, 0.7)',
+                    'rgba(231, 76, 60, 0.7)',
+                    'rgba(149, 165, 166, 0.7)',
+                    'rgba(22, 160, 133, 0.7)',
+                    'rgba(39, 174, 96, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(52, 152, 219, 1)',
+                    'rgba(46, 204, 113, 1)',
+                    'rgba(155, 89, 182, 1)',
+                    'rgba(52, 73, 94, 1)',
+                    'rgba(241, 196, 15, 1)',
+                    'rgba(230, 126, 34, 1)',
+                    'rgba(231, 76, 60, 1)',
+                    'rgba(149, 165, 166, 1)',
+                    'rgba(22, 160, 133, 1)',
+                    'rgba(39, 174, 96, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Top 10 Produtos Mais Procurados',
+                    font: {
+                        size: 16
+                    }
+                },
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Quantidade: ${context.parsed.y}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Quantidade Procurada'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Produtos'
+                    }
+                }
             }
+        }
+    });
+}
+
+// Função para carregar gráfico de movimentação mensal
+function loadMonthlyMovementChart() {
+    const entries = JSON.parse(localStorage.getItem('entries') || '[]');
+    const exits = JSON.parse(localStorage.getItem('exits') || '[]');
+    
+    // Gerar dados dos últimos 6 meses
+    const months = [];
+    const monthlyEntries = [];
+    const monthlyExits = [];
+    
+    for (let i = 5; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const monthYear = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        months.push(monthYear);
+        
+        // Filtrar movimentações do mês
+        const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        
+        const monthEntries = entries.filter(entry => {
+            const entryDate = new Date(entry.date);
+            return entryDate >= monthStart && entryDate <= monthEnd;
+        });
+        
+        const monthExits = exits.filter(exit => {
+            const exitDate = new Date(exit.date);
+            return exitDate >= monthStart && exitDate <= monthEnd;
+        });
+        
+        monthlyEntries.push(monthEntries.reduce((sum, entry) => sum + entry.quantity, 0));
+        monthlyExits.push(monthExits.reduce((sum, exit) => sum + exit.quantity, 0));
+    }
+    
+    const ctx = document.getElementById('monthlyMovementChart').getContext('2d');
+    
+    // Destruir gráfico anterior se existir
+    if (window.monthlyMovementChartInstance) {
+        window.monthlyMovementChartInstance.destroy();
+    }
+    
+    window.monthlyMovementChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Entradas',
+                    data: monthlyEntries,
+                    borderColor: 'rgba(46, 204, 113, 1)',
+                    backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Saídas',
+                    data: monthlyExits,
+                    borderColor: 'rgba(231, 76, 60, 1)',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Movimentação Mensal - Entradas vs Saídas',
+                    font: {
+                        size: 16
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Quantidade de Itens'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Meses'
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'nearest'
+            }
+        }
+    });
+}
             
             function updateAlertsTable() {
                 const products = JSON.parse(localStorage.getItem('products') || '[]');
@@ -1984,6 +2230,523 @@
                 document.querySelector('[data-tab="entry"]').click();
                 document.getElementById('entryProduct').value = productId;
                 document.getElementById('entryQuantity').focus();
+            }
+            
+            // =============================================
+            // FUNÇÕES PARA AJUSTES DE ESTOQUE E INVENTÁRIO
+            // =============================================
+
+            // Função para ajustar estoque manualmente
+            function adjustStock() {
+                const products = JSON.parse(localStorage.getItem('products') || '[]');
+                
+                if (products.length === 0) {
+                    alert('Não há produtos cadastrados para ajustar estoque!');
+                    return;
+                }
+                
+                // Criar modal para seleção do produto e ajuste
+                const modalHtml = `
+                    <div id="adjustStockModal" style="
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.5);
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 1000;
+                    ">
+                        <div style="
+                            background: white;
+                            padding: 30px;
+                            border-radius: 12px;
+                            width: 90%;
+                            max-width: 500px;
+                            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                        ">
+                            <h3 style="margin-bottom: 20px; color: var(--primary-color);">
+                                <i class="fas fa-edit"></i> Ajustar Estoque
+                            </h3>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Produto</label>
+                                <select id="adjustProductSelect" class="form-input" required>
+                                    <option value="">Selecione um produto</option>
+                                    ${products.map(p => `
+                                        <option value="${p.id}" data-current="${p.stock}">
+                                            ${p.code} - ${p.name} (Estoque: ${p.stock})
+                                        </option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Estoque Atual</label>
+                                <input type="text" id="currentStock" class="form-input" readonly>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Novo Estoque</label>
+                                <input type="number" id="newStock" class="form-input" min="0" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Motivo do Ajuste</label>
+                                <select id="adjustReason" class="form-input" required>
+                                    <option value="">Selecione o motivo</option>
+                                    <option value="inventario">Inventário</option>
+                                    <option value="avaria">Avaria/Perda</option>
+                                    <option value="ajuste">Ajuste Contábil</option>
+                                    <option value="outro">Outro</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Observações</label>
+                                <textarea id="adjustObservations" class="form-input" rows="3" placeholder="Observações sobre o ajuste"></textarea>
+                            </div>
+                            
+                            <div class="form-actions" style="margin-top: 25px;">
+                                <button type="button" class="btn btn-success" id="confirmAdjust">
+                                    <i class="fas fa-check"></i> Confirmar Ajuste
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="cancelAdjust">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                
+                // Event listeners do modal
+                const modal = document.getElementById('adjustStockModal');
+                const productSelect = document.getElementById('adjustProductSelect');
+                const currentStock = document.getElementById('currentStock');
+                const newStock = document.getElementById('newStock');
+                
+                // Atualizar estoque atual quando produto for selecionado
+                productSelect.addEventListener('change', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    const currentStockValue = selectedOption.getAttribute('data-current');
+                    currentStock.value = currentStockValue;
+                    newStock.value = currentStockValue;
+                });
+                
+                // Confirmar ajuste
+                document.getElementById('confirmAdjust').addEventListener('click', function() {
+                    const productId = productSelect.value;
+                    const newStockValue = parseInt(newStock.value) || 0;
+                    const reason = document.getElementById('adjustReason').value;
+                    const observations = document.getElementById('adjustObservations').value;
+                    
+                    if (!productId) {
+                        alert('Selecione um produto!');
+                        return;
+                    }
+                    
+                    if (!reason) {
+                        alert('Selecione o motivo do ajuste!');
+                        return;
+                    }
+                    
+                    const currentStockValue = parseInt(currentStock.value) || 0;
+                    const difference = newStockValue - currentStockValue;
+                    
+                    // Registrar o ajuste
+                    const adjustment = {
+                        id: generateId(),
+                        productId: productId,
+                        previousStock: currentStockValue,
+                        newStock: newStockValue,
+                        difference: difference,
+                        reason: reason,
+                        observations: observations,
+                        date: new Date().toISOString().split('T')[0],
+                        timestamp: new Date().toISOString(),
+                        user: localStorage.getItem('loggedInUser')
+                    };
+                    
+                    // Salvar ajuste no histórico
+                    const adjustments = JSON.parse(localStorage.getItem('stockAdjustments') || '[]');
+                    adjustments.push(adjustment);
+                    localStorage.setItem('stockAdjustments', JSON.stringify(adjustments));
+                    
+                    // Atualizar estoque do produto
+                    const productIndex = products.findIndex(p => p.id === productId);
+                    if (productIndex !== -1) {
+                        products[productIndex].stock = newStockValue;
+                        localStorage.setItem('products', JSON.stringify(products));
+                    }
+                    
+                    // Fechar modal
+                    modal.remove();
+                    
+                    alert(`Estoque ajustado com sucesso! Diferença: ${difference > 0 ? '+' : ''}${difference}`);
+                    
+                    // Atualizar interface
+                    updateDashboard();
+                    loadProductsTable();
+                    loadEntryFormProducts();
+                    loadExitFormProducts();
+                });
+                
+                // Cancelar ajuste
+                document.getElementById('cancelAdjust').addEventListener('click', function() {
+                    modal.remove();
+                });
+                
+                // Fechar modal ao clicar fora
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+            }
+
+            // Função para realizar inventário completo
+            function performInventory() {
+                const products = JSON.parse(localStorage.getItem('products') || '[]');
+                
+                if (products.length === 0) {
+                    alert('Não há produtos cadastrados para realizar inventário!');
+                    return;
+                }
+                
+                // Criar modal de inventário
+                const modalHtml = `
+                    <div id="inventoryModal" style="
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.5);
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 1000;
+                    ">
+                        <div style="
+                            background: white;
+                            padding: 30px;
+                            border-radius: 12px;
+                            width: 95%;
+                            max-width: 900px;
+                            max-height: 90vh;
+                            overflow-y: auto;
+                            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                        ">
+                            <h3 style="margin-bottom: 20px; color: var(--primary-color);">
+                                <i class="fas fa-clipboard-list"></i> Inventário de Estoque
+                            </h3>
+                            
+                            <div style="margin-bottom: 20px;">
+                                <p>Preencha o estoque contado para cada produto:</p>
+                            </div>
+                            
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Nome</th>
+                                            <th>Estoque Sistema</th>
+                                            <th>Estoque Contado</th>
+                                            <th>Diferença</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="inventoryTableBody">
+                                        ${products.map((product, index) => `
+                                            <tr>
+                                                <td>${product.code}</td>
+                                                <td>${product.name}</td>
+                                                <td>${product.stock}</td>
+                                                <td>
+                                                    <input type="number" 
+                                                           id="counted_${product.id}" 
+                                                           class="form-input" 
+                                                           style="width: 100px;"
+                                                           value="${product.stock}"
+                                                           min="0">
+                                                </td>
+                                                <td id="difference_${product.id}">0</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Observações do Inventário</label>
+                                <textarea id="inventoryObservations" class="form-input" rows="3" placeholder="Observações sobre o inventário"></textarea>
+                            </div>
+                            
+                            <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+                                <strong>Resumo:</strong>
+                                <div id="inventorySummary">Calculando...</div>
+                            </div>
+                            
+                            <div class="form-actions" style="margin-top: 25px;">
+                                <button type="button" class="btn btn-success" id="confirmInventory">
+                                    <i class="fas fa-check"></i> Finalizar Inventário
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="cancelInventory">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                
+                // Calcular diferenças automaticamente
+                products.forEach(product => {
+                    const input = document.getElementById(`counted_${product.id}`);
+                    const differenceCell = document.getElementById(`difference_${product.id}`);
+                    
+                    input.addEventListener('input', function() {
+                        const counted = parseInt(this.value) || 0;
+                        const system = product.stock;
+                        const difference = counted - system;
+                        
+                        differenceCell.textContent = difference;
+                        differenceCell.style.color = difference === 0 ? 'green' : difference > 0 ? 'blue' : 'red';
+                        
+                        updateInventorySummary();
+                    });
+                });
+                
+                // Atualizar resumo inicial
+                updateInventorySummary();
+                
+                // Event listeners do modal
+                const modal = document.getElementById('inventoryModal');
+                
+                // Confirmar inventário
+                document.getElementById('confirmInventory').addEventListener('click', function() {
+                    const observations = document.getElementById('inventoryObservations').value;
+                    const adjustments = [];
+                    
+                    products.forEach(product => {
+                        const countedInput = document.getElementById(`counted_${product.id}`);
+                        const counted = parseInt(countedInput.value) || 0;
+                        const system = product.stock;
+                        const difference = counted - system;
+                        
+                        if (difference !== 0) {
+                            adjustments.push({
+                                productId: product.id,
+                                productCode: product.code,
+                                productName: product.name,
+                                previousStock: system,
+                                newStock: counted,
+                                difference: difference
+                            });
+                        }
+                    });
+                    
+                    if (adjustments.length === 0) {
+                        alert('Nenhuma diferença encontrada. Estoque está correto!');
+                        modal.remove();
+                        return;
+                    }
+                    
+                    if (confirm(`Deseja aplicar ${adjustments.length} ajustes de estoque?`)) {
+                        // Aplicar ajustes
+                        adjustments.forEach(adj => {
+                            const productIndex = products.findIndex(p => p.id === adj.productId);
+                            if (productIndex !== -1) {
+                                products[productIndex].stock = adj.newStock;
+                            }
+                            
+                            // Registrar no histórico
+                            const adjustmentRecord = {
+                                id: generateId(),
+                                productId: adj.productId,
+                                previousStock: adj.previousStock,
+                                newStock: adj.newStock,
+                                difference: adj.difference,
+                                reason: 'inventario',
+                                observations: `Inventário: ${observations}`,
+                                date: new Date().toISOString().split('T')[0],
+                                timestamp: new Date().toISOString(),
+                                user: localStorage.getItem('loggedInUser')
+                            };
+                            
+                            const adjustmentsHistory = JSON.parse(localStorage.getItem('stockAdjustments') || '[]');
+                            adjustmentsHistory.push(adjustmentRecord);
+                            localStorage.setItem('stockAdjustments', JSON.stringify(adjustmentsHistory));
+                        });
+                        
+                        // Salvar produtos atualizados
+                        localStorage.setItem('products', JSON.stringify(products));
+                        
+                        // Fechar modal
+                        modal.remove();
+                        
+                        alert(`Inventário finalizado! ${adjustments.length} produtos ajustados.`);
+                        
+                        // Atualizar interface
+                        updateDashboard();
+                        loadProductsTable();
+                        loadEntryFormProducts();
+                        loadExitFormProducts();
+                    }
+                });
+                
+                // Cancelar inventário
+                document.getElementById('cancelInventory').addEventListener('click', function() {
+                    modal.remove();
+                });
+                
+                // Fechar modal ao clicar fora
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+                
+                function updateInventorySummary() {
+                    let totalDifferences = 0;
+                    let positiveCount = 0;
+                    let negativeCount = 0;
+                    let zeroCount = 0;
+                    
+                    products.forEach(product => {
+                        const countedInput = document.getElementById(`counted_${product.id}`);
+                        const counted = parseInt(countedInput.value) || 0;
+                        const difference = counted - product.stock;
+                        
+                        totalDifferences += Math.abs(difference);
+                        if (difference > 0) positiveCount++;
+                        else if (difference < 0) negativeCount++;
+                        else zeroCount++;
+                    });
+                    
+                    const summary = `
+                        Produtos com diferença: ${positiveCount + negativeCount}<br>
+                        - Acréscimos: ${positiveCount}<br>
+                        - Decréscimos: ${negativeCount}<br>
+                        - Sem diferença: ${zeroCount}<br>
+                        Total de itens com diferença: ${totalDifferences}
+                    `;
+                    
+                    document.getElementById('inventorySummary').innerHTML = summary;
+                }
+            }
+
+            // Função para visualizar histórico de ajustes
+            function viewAdjustmentHistory() {
+                const adjustments = JSON.parse(localStorage.getItem('stockAdjustments') || '[]');
+                const products = JSON.parse(localStorage.getItem('products') || '[]');
+                
+                if (adjustments.length === 0) {
+                    alert('Não há histórico de ajustes de estoque!');
+                    return;
+                }
+                
+                // Criar modal de histórico
+                const modalHtml = `
+                    <div id="historyModal" style="
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.5);
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 1000;
+                    ">
+                        <div style="
+                            background: white;
+                            padding: 30px;
+                            border-radius: 12px;
+                            width: 95%;
+                            max-width: 1000px;
+                            max-height: 90vh;
+                            overflow-y: auto;
+                            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                        ">
+                            <h3 style="margin-bottom: 20px; color: var(--primary-color);">
+                                <i class="fas fa-history"></i> Histórico de Ajustes de Estoque
+                            </h3>
+                            
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Produto</th>
+                                            <th>Estoque Anterior</th>
+                                            <th>Novo Estoque</th>
+                                            <th>Diferença</th>
+                                            <th>Motivo</th>
+                                            <th>Usuário</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${adjustments.map(adj => {
+                                            const product = products.find(p => p.id === adj.productId);
+                                            const productName = product ? `${product.code} - ${product.name}` : 'Produto não encontrado';
+                                            const diffColor = adj.difference > 0 ? 'color: green;' : adj.difference < 0 ? 'color: red;' : '';
+                                            
+                                            return `
+                                                <tr>
+                                                    <td>${new Date(adj.date).toLocaleDateString('pt-BR')}</td>
+                                                    <td>${productName}</td>
+                                                    <td>${adj.previousStock}</td>
+                                                    <td>${adj.newStock}</td>
+                                                    <td style="${diffColor}">${adj.difference > 0 ? '+' : ''}${adj.difference}</td>
+                                                    <td>${getReasonText(adj.reason)}</td>
+                                                    <td>${adj.user}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="form-actions" style="margin-top: 25px;">
+                                <button type="button" class="btn btn-secondary" id="closeHistory">
+                                    <i class="fas fa-times"></i> Fechar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                
+                // Event listeners do modal
+                const modal = document.getElementById('historyModal');
+                
+                document.getElementById('closeHistory').addEventListener('click', function() {
+                    modal.remove();
+                });
+                
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+            }
+
+            function getReasonText(reason) {
+                const reasons = {
+                    'inventario': 'Inventário',
+                    'avaria': 'Avaria/Perda',
+                    'ajuste': 'Ajuste Contábil',
+                    'outro': 'Outro'
+                };
+                return reasons[reason] || reason;
             }
             
             // =============================================
@@ -2062,137 +2825,328 @@
             }
 
             function processExcelData(data) {
-                const currentUser = localStorage.getItem('loggedInUser');
-                let products = JSON.parse(localStorage.getItem('products') || '[]');
-                
-                let processed = 0;
-                let added = 0;
-                let updated = 0;
-                
-                data.forEach((row, index) => {
-                    // Pular linhas vazias
-                    if (!row['Código'] && !row['Nome']) return;
-                    
-                    processed++;
-                    
-                    // Mapear colunas do Excel para o sistema
-                    const productData = {
-                        id: generateId(),
-                        code: row['Código'] || row['codigo'] || `AUTO_${Date.now()}_${index}`,
-                        name: row['Nome'] || row['nome'] || row['Descrição'] || 'Produto Sem Nome',
-                        category: row['Categoria'] || row['categoria'] || 'Outros',
-                        unit: row['Unidade'] || row['unidade'] || 'Unidade',
-                        cost: parseFloat(row['Custo'] || row['custo'] || row['Custo Unitário'] || 0),
-                        price: parseFloat(row['Preço'] || row['preco'] || row['Preço Venda'] || 0),
-                        minStock: parseInt(row['Estoque Mínimo'] || row['estoque_minimo'] || row['Mínimo'] || 0),
-                        maxStock: parseInt(row['Estoque Máximo'] || row['estoque_maximo'] || row['Máximo'] || 0),
-                        stock: parseInt(row['Estoque'] || row['estoque'] || row['Estoque Atual'] || 0),
-                        description: row['Descrição'] || row['descricao'] || '',
-                        createdBy: currentUser,
-                        createdAt: new Date().toISOString()
-                    };
-                    
-                    // Verificar se produto já existe (atualizar)
-                    const existingIndex = products.findIndex(p => p.code === productData.code);
-                    if (existingIndex !== -1) {
-                        // Mantém o ID original e atualiza os dados
-                        productData.id = products[existingIndex].id;
-                        products[existingIndex] = { ...products[existingIndex], ...productData };
-                        updated++;
-                    } else {
-                        products.push(productData);
-                        added++;
-                    }
-                });
-                
-                localStorage.setItem('products', JSON.stringify(products));
-                
-                return {
-                    processed,
-                    added,
-                    updated
-                };
-            }
+    const currentUser = localStorage.getItem('loggedInUser');
+    let products = JSON.parse(localStorage.getItem('products') || '[]');
+    
+    let processed = 0;
+    let added = 0;
+    let updated = 0;
+    
+    // Função para converter string numérica com vírgula para número
+    function parseNumber(value) {
+        if (typeof value === 'number') return value;
+        if (typeof value !== 'string') return 0;
+        
+        // Remove espaços e R$ se existirem
+        let cleaned = value.toString().trim().replace(/\s/g, '');
+        cleaned = cleaned.replace('R$', '').replace('USD', '').replace('€', '');
+        
+        // Verifica se tem vírgula como separador decimal
+        if (cleaned.includes(',') && !cleaned.includes('.')) {
+            // Formato brasileiro: 1.234,56 -> 1234.56
+            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+        } else if (cleaned.includes('.') && cleaned.includes(',')) {
+            // Formato internacional com separador de milhar: 1,234.56
+            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+        }
+        
+        // Remove qualquer caractere não numérico exceto ponto e sinal negativo
+        cleaned = cleaned.replace(/[^\d.-]/g, '');
+        
+        const number = parseFloat(cleaned);
+        return isNaN(number) ? 0 : number;
+    }
+    
+    // Função para converter string para inteiro
+    function parseInteger(value) {
+        if (typeof value === 'number') return Math.round(value);
+        if (typeof value !== 'string') return 0;
+        
+        // Remove tudo que não é número
+        const cleaned = value.toString().replace(/[^\d]/g, '');
+        const number = parseInt(cleaned, 10);
+        return isNaN(number) ? 0 : number;
+    }
+    
+    data.forEach((row, index) => {
+        // Pular linhas vazias
+        if (!row['Código'] && !row['Nome'] && !row['codigo'] && !row['nome']) return;
+        
+        processed++;
+        
+        // Mapear colunas do Excel para o sistema com tratamento de números
+        const productData = {
+            id: generateId(),
+            code: row['Código'] || row['codigo'] || `AUTO_${Date.now()}_${index}`,
+            name: row['Nome'] || row['nome'] || row['Descrição'] || row['descricao'] || 'Produto Sem Nome',
+            category: row['Categoria'] || row['categoria'] || 'Outros',
+            unit: row['Unidade'] || row['unidade'] || 'Unidade',
+            cost: parseNumber(row['Custo'] || row['custo'] || row['Custo Unitário'] || row['custo_unitario'] || 0),
+            price: parseNumber(row['Preço'] || row['preco'] || row['Preço Venda'] || row['preco_venda'] || 0),
+            minStock: parseInteger(row['Estoque Mínimo'] || row['estoque_minimo'] || row['Mínimo'] || row['minimo'] || 0),
+            maxStock: parseInteger(row['Estoque Máximo'] || row['estoque_maximo'] || row['Máximo'] || row['maximo'] || 0),
+            stock: parseInteger(row['Estoque'] || row['estoque'] || row['Estoque Atual'] || row['estoque_atual'] || 0),
+            description: row['Descrição'] || row['descricao'] || '',
+            createdBy: currentUser,
+            createdAt: new Date().toISOString()
+        };
+        
+        // Verificar se produto já existe (atualizar)
+        const existingIndex = products.findIndex(p => p.code === productData.code);
+        if (existingIndex !== -1) {
+            // Mantém o ID original e atualiza os dados
+            productData.id = products[existingIndex].id;
+            products[existingIndex] = { ...products[existingIndex], ...productData };
+            updated++;
+        } else {
+            products.push(productData);
+            added++;
+        }
+    });
+    
+    localStorage.setItem('products', JSON.stringify(products));
+    
+    return {
+        processed,
+        added,
+        updated
+    };
+}
 
             function downloadExcelTemplate() {
-                const templateData = [
-                    {
-                        'Código': 'P001',
-                        'Nome': 'Fio Elétrico 2.5mm',
-                        'Categoria': 'Elétrica',
-                        'Unidade': 'Metro',
-                        'Custo': 2.50,
-                        'Preço': 3.50,
-                        'Estoque Mínimo': 100,
-                        'Estoque Máximo': 1000,
-                        'Estoque': 0, // CORREÇÃO: Estoque zerado no template
-                        'Descrição': 'Fio elétrico 2.5mm vermelho'
-                    },
-                    {
-                        'Código': 'P002',
-                        'Nome': 'Parafuso 3x20mm',
-                        'Categoria': 'Ferragens',
-                        'Unidade': 'Unidade',
-                        'Custo': 0.15,
-                        'Preço': 0.25,
-                        'Estoque Mínimo': 500,
-                        'Estoque Máximo': 5000,
-                        'Estoque': 0, // CORREÇÃO: Estoque zerado no template
-                        'Descrição': 'Parafuso sextavado 3x20mm'
+    const templateData = [
+        {
+            'Código': 'P001',
+            'Nome': 'Fio Elétrico 2.5mm',
+            'Categoria': 'Elétrica',
+            'Unidade': 'Metro',
+            'Custo': '2,50',  // Agora com vírgula
+            'Preço': '3,50',  // Agora com vírgula
+            'Estoque Mínimo': '100',
+            'Estoque Máximo': '1000',
+            'Estoque': '0',
+            'Descrição': 'Fio elétrico 2.5mm vermelho'
+        },
+        {
+            'Código': 'P002',
+            'Nome': 'Parafuso 3x20mm',
+            'Categoria': 'Ferragens',
+            'Unidade': 'Unidade',
+            'Custo': '0,15',  // Agora com vírgula
+            'Preço': '0,25',  // Agora com vírgula
+            'Estoque Mínimo': '500',
+            'Estoque Máximo': '5000',
+            'Estoque': '0',
+            'Descrição': 'Parafuso sextavado 3x20mm'
+        }
+    ];
+    
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos');
+    
+    // Ajustar largura das colunas
+    const colWidths = [
+        { wch: 15 }, // Código
+        { wch: 30 }, // Nome
+        { wch: 15 }, // Categoria
+        { wch: 12 }, // Unidade
+        { wch: 10 }, // Custo
+        { wch: 10 }, // Preço
+        { wch: 15 }, // Estoque Mínimo
+        { wch: 15 }, // Estoque Máximo
+        { wch: 10 }, // Estoque
+        { wch: 40 }  // Descrição
+    ];
+    worksheet['!cols'] = colWidths;
+    
+    XLSX.writeFile(workbook, 'modelo_importacao_produtos.xlsx');
+}
+
+            // =============================================
+// VARIÁVEIS GLOBAIS - COLOCAR SEMPRE NO TOPO
+// =============================================
+
+// Variáveis globais para controle da sincronização
+let autoSyncInterval = null;
+let googleSheetConnected = false;
+
+// =============================================
+// FUNÇÕES DO GOOGLE SHEETS
+// =============================================
+
+async function connectGoogleSheets() {
+    const sheetUrl = document.getElementById('googleSheetUrl').value;
+    const statusDiv = document.getElementById('importStatus');
+    
+    if (!sheetUrl) {
+        statusDiv.textContent = 'Por favor, insira a URL da planilha Google Sheets.';
+        statusDiv.className = 'import-status import-error';
+        statusDiv.style.display = 'block';
+        return;
+    }
+    
+    try {
+        statusDiv.textContent = 'Conectando com Google Sheets...';
+        statusDiv.className = 'import-status import-success';
+        statusDiv.style.display = 'block';
+        
+        // Extrair ID da planilha da URL
+        const sheetId = extractGoogleSheetId(sheetUrl);
+        
+        if (!sheetId) {
+            throw new Error('URL do Google Sheets inválida. Certifique-se de que é uma URL pública.');
+        }
+        
+        // Verificar se a planilha é acessível
+        const testUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`;
+        
+        const response = await fetch(testUrl);
+        if (!response.ok) {
+            throw new Error('Não foi possível acessar a planilha. Verifique se ela é pública.');
+        }
+        
+        // Salvar informações da planilha
+        localStorage.setItem('googleSheetId', sheetId);
+        localStorage.setItem('googleSheetUrl', sheetUrl);
+        
+        googleSheetConnected = true;
+        
+        statusDiv.textContent = 'Conexão com Google Sheets estabelecida com sucesso!';
+        statusDiv.className = 'import-status import-success';
+        
+        // Fazer primeira sincronização
+        await syncWithGoogleSheets();
+        
+    } catch (error) {
+        statusDiv.textContent = 'Erro ao conectar com Google Sheets: ' + error.message;
+        statusDiv.className = 'import-status import-error';
+        googleSheetConnected = false;
+    }
+}
+
+function extractGoogleSheetId(url) {
+    try {
+        const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        return match ? match[1] : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+async function syncWithGoogleSheets() {
+    const statusDiv = document.getElementById('importStatus');
+    const sheetId = localStorage.getItem('googleSheetId');
+    
+    if (!sheetId) {
+        statusDiv.textContent = 'Nenhuma planilha Google Sheets configurada.';
+        statusDiv.className = 'import-status import-error';
+        statusDiv.style.display = 'block';
+        return;
+    }
+    
+    try {
+        statusDiv.textContent = 'Sincronizando com Google Sheets...';
+        statusDiv.className = 'import-status import-success';
+        statusDiv.style.display = 'block';
+        
+        // URL para obter dados em formato CSV
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`;
+        
+        const response = await fetch(csvUrl);
+        if (!response.ok) {
+            throw new Error('Erro ao buscar dados da planilha.');
+        }
+        
+        const csvText = await response.text();
+        
+        // Converter CSV para JSON
+        const data = csvToJson(csvText);
+        
+        // Processar os dados
+        const result = processExcelData(data);
+        
+        statusDiv.innerHTML = `
+            <strong>Sincronização concluída com sucesso!</strong><br>
+            Última atualização: ${new Date().toLocaleTimeString('pt-BR')}<br>
+            Produtos processados: ${result.processed}<br>
+            Produtos adicionados: ${result.added}<br>
+            Produtos atualizados: ${result.updated}
+        `;
+        statusDiv.className = 'import-status import-success';
+        
+        // Atualizar a interface
+        updateDashboard();
+        loadProductsTable();
+        loadEntryFormProducts();
+        loadExitFormProducts();
+        
+    } catch (error) {
+        statusDiv.textContent = 'Erro na sincronização: ' + error.message;
+        statusDiv.className = 'import-status import-error';
+        console.error('Erro na sincronização:', error);
+    }
+}
+            function csvToJson(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim() !== '');
+    if (lines.length === 0) return [];
+    
+    // Extrair cabeçalhos
+    const headers = lines[0].split(',').map(header => 
+        header.replace(/^"|"$/g, '').trim()
+    );
+    
+    // Processar linhas de dados
+    const result = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        const values = parseCsvLine(line);
+        const obj = {};
+        
+        headers.forEach((header, index) => {
+            if (values[index] !== undefined) {
+                // Remove aspas e espaços
+                let value = values[index].replace(/^"|"$/g, '').trim();
+                
+                // Converte números com vírgula para ponto
+                if (value && !isNaN(value.replace(',', '.')) && value !== '') {
+                    // Se tem vírgula, converte para formato numérico
+                    if (value.includes(',')) {
+                        value = value.replace(/\./g, '').replace(',', '.');
                     }
-                ];
+                }
                 
-                const worksheet = XLSX.utils.json_to_sheet(templateData);
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos');
-                
-                // Ajustar largura das colunas
-                const colWidths = [
-                    { wch: 15 }, // Código
-                    { wch: 30 }, // Nome
-                    { wch: 15 }, // Categoria
-                    { wch: 12 }, // Unidade
-                    { wch: 10 }, // Custo
-                    { wch: 10 }, // Preço
-                    { wch: 15 }, // Estoque Mínimo
-                    { wch: 15 }, // Estoque Máximo
-                    { wch: 10 }, // Estoque
-                    { wch: 40 }  // Descrição
-                ];
-                worksheet['!cols'] = colWidths;
-                
-                XLSX.writeFile(workbook, 'modelo_importacao_produtos.xlsx');
+                obj[header] = value;
             }
+        });
+        
+        result.push(obj);
+    }
+    
+    return result;
+}
 
-            // Funções do Google Sheets (simuladas)
-            let autoSyncInterval = null;
-
-            async function connectGoogleSheets() {
-                const sheetUrl = document.getElementById('googleSheetUrl').value;
-                const statusDiv = document.getElementById('importStatus');
+            function parseCsvLine(line) {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
                 
-                if (!sheetUrl) {
-                    statusDiv.textContent = 'Por favor, insira a URL da planilha Google Sheets.';
-                    statusDiv.className = 'import-status import-error';
-                    statusDiv.style.display = 'block';
-                    return;
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current);
+                        current = '';
+                    } else {
+                        current += char;
+                    }
                 }
                 
-                try {
-                    statusDiv.textContent = 'Conectando com Google Sheets...';
-                    statusDiv.className = 'import-status import-success';
-                    statusDiv.style.display = 'block';
-                    
-                    // Simulação - em produção, você faria uma chamada real à API
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    
-                    statusDiv.textContent = 'Funcionalidade em desenvolvimento. Use a importação por arquivo Excel.';
-                    statusDiv.className = 'import-status import-success';
-                    
-                } catch (error) {
-                    statusDiv.textContent = 'Erro ao conectar com Google Sheets: ' + error.message;
-                    statusDiv.className = 'import-status import-error';
-                }
+                result.push(current);
+                return result;
             }
 
             function toggleAutoSync() {
@@ -2200,6 +3154,7 @@
                 const statusDiv = document.getElementById('importStatus');
                 
                 if (autoSyncInterval) {
+                    // Parar sincronização automática
                     clearInterval(autoSyncInterval);
                     autoSyncInterval = null;
                     button.innerHTML = '<i class="fas fa-redo"></i> Ativar Sincronização Automática';
@@ -2209,14 +3164,16 @@
                     statusDiv.className = 'import-status import-success';
                     statusDiv.style.display = 'block';
                 } else {
-                    const sheetUrl = document.getElementById('googleSheetUrl').value;
-                    if (!sheetUrl) {
+                    // Verificar se há uma planilha configurada
+                    const sheetId = localStorage.getItem('googleSheetId');
+                    if (!sheetId) {
                         statusDiv.textContent = 'Configure a URL do Google Sheets primeiro.';
                         statusDiv.className = 'import-status import-error';
                         statusDiv.style.display = 'block';
                         return;
                     }
                     
+                    // Iniciar sincronização automática
                     statusDiv.textContent = 'Sincronização automática ativada (a cada 5 minutos)';
                     statusDiv.className = 'import-status import-success';
                     statusDiv.style.display = 'block';
@@ -2225,12 +3182,21 @@
                     button.classList.remove('btn-info');
                     button.classList.add('btn-success');
                     
-                    // Simulação de sincronização automática
+                    // Fazer primeira sincronização imediatamente
+                    syncWithGoogleSheets();
+                    
+                    // Configurar sincronização automática a cada 5 minutos
                     autoSyncInterval = setInterval(() => {
-                        statusDiv.textContent = `Última sincronização: ${new Date().toLocaleTimeString('pt-BR')}`;
-                        statusDiv.className = 'import-status import-success';
-                        statusDiv.style.display = 'block';
+                        syncWithGoogleSheets();
                     }, 300000); // 5 minutos
+                }
+            }
+
+            // Adicione esta função para carregar a URL salva ao iniciar o sistema
+            function loadSavedGoogleSheet() {
+                const savedUrl = localStorage.getItem('googleSheetUrl');
+                if (savedUrl) {
+                    document.getElementById('googleSheetUrl').value = savedUrl;
                 }
             }
             
@@ -2326,9 +3292,203 @@
             }
             
             // Funções auxiliares
-            function loadUsageStatistics() {
-                console.log('Carregando estatísticas de uso...');
+            // Substitua a função loadUsageStatistics() atual por esta versão completa:
+
+function loadUsageStatistics() {
+    const products = JSON.parse(localStorage.getItem('products') || '[]');
+    const entries = JSON.parse(localStorage.getItem('entries') || '[]');
+    const exits = JSON.parse(localStorage.getItem('exits') || '[]');
+    const adjustments = JSON.parse(localStorage.getItem('stockAdjustments') || '[]');
+    
+    const ctx = document.getElementById('usageStatisticsChart').getContext('2d');
+    
+    // Dados dos últimos 6 meses
+    const months = [];
+    const monthlyEntries = [];
+    const monthlyExits = [];
+    const monthlyAdjustments = [];
+    
+    // Gerar dados dos últimos 6 meses
+    for (let i = 5; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const monthYear = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        months.push(monthYear);
+        
+        // Filtrar movimentações do mês
+        const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        
+        const monthEntries = entries.filter(entry => {
+            const entryDate = new Date(entry.date);
+            return entryDate >= monthStart && entryDate <= monthEnd;
+        });
+        
+        const monthExits = exits.filter(exit => {
+            const exitDate = new Date(exit.date);
+            return exitDate >= monthStart && exitDate <= monthEnd;
+        });
+        
+        const monthAdjustments = adjustments.filter(adj => {
+            const adjDate = new Date(adj.date);
+            return adjDate >= monthStart && adjDate <= monthEnd;
+        });
+        
+        monthlyEntries.push(monthEntries.reduce((sum, entry) => sum + entry.quantity, 0));
+        monthlyExits.push(monthExits.reduce((sum, exit) => sum + exit.quantity, 0));
+        monthlyAdjustments.push(monthAdjustments.length);
+    }
+    
+    // Estatísticas gerais
+    const totalProducts = products.length;
+    const totalValue = products.reduce((sum, product) => sum + (product.stock * product.cost), 0);
+    const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= p.minStock).length;
+    const outOfStockProducts = products.filter(p => p.stock === 0).length;
+    const totalMovements = entries.length + exits.length;
+    
+    // Criar gráfico principal
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Entradas (Quantidade)',
+                    data: monthlyEntries,
+                    backgroundColor: 'rgba(39, 174, 96, 0.7)',
+                    borderColor: 'rgba(39, 174, 96, 1)',
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Saídas (Quantidade)',
+                    data: monthlyExits,
+                    backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                    borderColor: 'rgba(231, 76, 60, 1)',
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Ajustes (Quantidade)',
+                    data: monthlyAdjustments,
+                    type: 'line',
+                    fill: false,
+                    borderColor: 'rgba(52, 152, 219, 1)',
+                    backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(52, 152, 219, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Estatísticas de Uso - Movimentações Mensais',
+                    font: {
+                        size: 16
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                },
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Quantidade de Itens'
+                    },
+                    beginAtZero: true
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Quantidade de Ajustes'
+                    },
+                    beginAtZero: true,
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
             }
+        }
+    });
+    
+    // Adicionar cards com estatísticas abaixo do gráfico
+    const chartContainer = document.querySelector('#management .chart-container');
+    
+    // Remover estatísticas anteriores se existirem
+    const existingStats = chartContainer.querySelector('.usage-stats-cards');
+    if (existingStats) {
+        existingStats.remove();
+    }
+    
+    const statsHtml = `
+        <div class="usage-stats-cards" style="margin-top: 30px;">
+            <h4 style="margin-bottom: 20px; color: var(--primary-color);">
+                <i class="fas fa-chart-line"></i> Estatísticas Gerais
+            </h4>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value">${totalProducts}</div>
+                    <div class="metric-label">Total de Produtos</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">R$ ${totalValue.toFixed(2)}</div>
+                    <div class="metric-label">Valor Total em Estoque</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${lowStockProducts}</div>
+                    <div class="metric-label">Produtos com Estoque Baixo</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${outOfStockProducts}</div>
+                    <div class="metric-label">Produtos em Falta</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${entries.length}</div>
+                    <div class="metric-label">Total de Entradas</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${exits.length}</div>
+                    <div class="metric-label">Total de Saídas</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${totalMovements}</div>
+                    <div class="metric-label">Total de Movimentações</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${adjustments.length}</div>
+                    <div class="metric-label">Ajustes Realizados</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    chartContainer.insertAdjacentHTML('beforeend', statsHtml);
+}
             
             // Funções globais para os botões
             window.editProduct = function(id) {
